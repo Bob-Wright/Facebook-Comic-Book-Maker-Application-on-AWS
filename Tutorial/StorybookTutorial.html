@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+<title>Storybook Tutorial</title>
+<style type="text/css" media="screen">
+body {
+    width: 100%;
+    height: 100%;
+	margin: 0;
+	background-color: #fff;
+}
+h1 {
+color: #000;
+font-size: 50px;
+margin-left: 2vw;
+margin-right: 2vw;
+}
+h2 {
+color: #000;
+font-size: 30px;
+margin-left: 2vw;
+margin-right: 2vw;
+}
+p {
+color: #000;
+font-size: 30px;
+margin-left: 2vw;
+margin-right: 2vw;
+}
+pre {
+color: #000;
+font-size: 20px;
+margin-left: 2vw;
+margin-right: 2vw;
+}
+</style>
+<body>
+<h1>Facebook Comic Book Maker Application on AWS</h1>
+<h2>Introduction.</h2>
+<p>This tutorial repository contains information and instructions about how to set up an example Facebook application on an Amazon Web Services (AWS) hosted website. The site runs on a Bitnami Ubuntu Linux, Apache, mySQL, and PHP (LAMP) stack server in the Amazon cloud. This document assumes that the LAMP stack is already set up and functional and that its command console is accessible through a terminal program like PuTTY, and it assumes some familiarity with the LAMP stack and its components. It is also assumed that the site already has an SSL certificate installed and operating correctly. The tutorial will initially focus more upon the server application setup than it will upon the details of the application's functions and code. All of the code for the application itself is also included in the repository, and after the filesystem setups this tutorial continues with explanations about the structure of the builder application and the functions of its programs.</p>
+
+<p>Setting up the application on Facebook requires that the application code is already written and functional, and that the host site URLs are accessible and active. So we will have to set all of that up before we can add the application to Facebook itself. The tutorial concludes with a few screenshots that provide a brief overview of setting the application up on Facebook.</p>
+
+<p><strong>It is suggested that you read over the tutorial completely before you begin performing the operations described. Additionally some of the example code will require editing to suit your environment and domain before it can be used.</strong></p>
+
+<p>For this example application we will use the idea of a comic book maker or "builder" named Storybook that will create and host web comics from user provided input data. The entry point for the comic book builder is from a comics gallery page. Once the comic is created it will be hosted on the website and displayed in the gallery along with other comics. The gallery on our actual <a href="https://syntheticreality.net/Comics/Comics.php">Storybook site</a> contains a few comics besides this example.</p>
+
+<p>The comics created by the builder use a responsive design and incorporate the Bootstrap framework, so the site responds to the viewing device characteristics. The builder itself is probably best viewed on a laptop or desktop.</p>
+
+<p>The first action required in the comic book maker application is for the user to login or authenticate themselves to the application as a Facebook user. Only Facebook users can upload content and create comics, but anyone can view the comics.</p>
+
+<p>Besides creating and hosting the comics, the application also has some other functions.</p>
+
+<p>One function that appears is a "Like" button to encourage a user to give the application a "Like" on Facebook. In our example we have this button on the user login page, and if the user has already "Liked" the application the button is highlighted. Once the user has provided the content and created a comic, the application then gives the user an opportunity to download a stand-alone archive of their comic book, and it gives the user an opportunity to easily share their comic on Facebook. The application sets up the Open Graph image and text that Facebook displays if the comic is shared.</p>
+
+<p>If a user logs back into the application after they have already created a comic, they will be given the opportunity to share their comic to Facebook, or they may choose to delete their content. Allowing a user to delete their content is a requirement for Facebook applications.</p>
+
+<p>The first action a user will take after successfully logging in via their Facebook account is to answer a number of "fill in the blank" questions about the comic. For example, what is the comic's name? What is the author's name? Following this is a series of dialogs wherein the user will choose and upload such content as the page image files or the text caption files for the comic.</p>
+
+<p>So the foregoing provides an overview of the application's functionality. Now let's look at the server setup and folder hierarchy to implement these functions.</p>
+
+<h2>Users and Folder hierarchy.</h2>
+
+<p>We want to set up a web site that will allow users to upload content that the site will incorporate into web pages for display. We want to do this in a way that does not require us to trust users. We need to control access to certain folders in such a way as to allow our code to write and read website user uploaded content with several security considerations.</p>
+
+<p>First, we do not allow any online user to upload any content to our DOCUMENT_ROOT</p>
+
+<p>Second, since we do want to display uploaded user content we need to set up a place to upload and store the content.</p>
+
+<p>Third, we need to set up access permissions and ownership for those upload directories</p>
+
+<p>If this is done we can enjoy a more secure website and still allow the upload and display of user uploaded content.</p>
+
+<p>Note that <strong>apache2$</strong> is used as a simplified command prompt in the following descriptions and examples.</p>
+
+<p>The first thing we'll do is create a user group to control access to the application folders through membership in the group. We will use www-pub for the group name and we will add two users to the group as shown here:</p>
+<pre>apache2$ sudo addgroup www-pub
+Adding group `www-pub' (GID 9999) ...
+Done.
+apache2$ sudo adduser daemon www-pub
+Adding user `daemon' to group `www-pub' ...
+Adding user daemon to group www-pub
+Done.
+apache2$ sudo adduser bitnami www-pub
+Adding user `bitnami' to group `www-pub' ...
+Adding user bitnami to group www-pub
+Done.
+apache2$ getent group www-pub
+www-pub:x:9999:daemon,bitnami
+apache2$</pre>
+
+<p>So now we have a group and two users as described. Now let's set up a folder structure to accommodate our web site needs. We will create seven folders at the same logical level as our apache htdocs folder. The physical folder we will use to create these logical level equivalents to the Apache htdocs folder is the /home/bitnami/ folder, while the physical Apache htdocs folder is actually /opt/bitnami/apache2/htdocs/ as shown by the link in this following directory.</p>
+<pre>lrwxrwxrwx  1 bitnami bitnami    27 Oct 26  2019 htdocs -> /opt/bitnami/apache2/htdocs/
+drwxrwxr-x 12 bitnami bitnami  4096 Mar 22  2020 Facebook/
+drwxrwxr-x  3 bitnami bitnami  4096 Mar 18  2020 session2DB/
+drwxrwxr-x  2 bitnami bitnami  4096 Dec  4 20:15 includes/
+drwxrwsr-x  2 root    www-pub  4096 Dec 24 22:37 uploads/
+drwxrwsr-x  4 root    www-pub  4096 Nov 13 16:49 ComicsUser/
+drwxrwsr-x  4 root    www-pub  4096 Nov 13 16:52 Storybook/
+drwxrwsr-x  4 root    www-pub  4096 Nov 13 16:49 Comics/</pre>
+
+<p>For the first three folders (the Facebook, session2DB, and includes folders) we can simply copy them with their contents into the LAMP stack folder structure using our FTP client. The last four folders (the uploads, ComicsUser, Storybook, and Comics folders) we create and assign permiisions using these following commands:</p>
+<pre>apache2$ mkdir uploads
+apache2$ chown root:www-pub uploads
+apache2$ chmod g+rwxs uploads
+
+apache2$ mkdir Storybook
+apache2$ chown root:www-pub Storybook
+apache2$ chmod g+rwxs Storybook
+
+apache2$ mkdir ComicsUser
+apache2$ chown root:www-pub ComicsUser
+apache2$ chmod g+rwxs ComicsUser
+
+apache2$ mkdir Comics
+apache2$ chown root:www-pub Comics
+apache2$ chmod g+rwxs Comics</pre>
+
+<p>We now have the folders with permissions and ownership as shown in the directory above. Now we will create two subfolders under our newly created Storybook folder, and in the same way we will create the same two subfolders under the ComicsUser and the Comics folders. The subfolders are not used under the uploads folder.</p>
+<pre>apache2$ mkdir Storybook/htdocs
+apache2$ mkdir Storybook/conf
+apache2$ ll Storybook
+total 16
+drwxrwsr-x  4 root www-pub 4096 Oct 23 13:13 ./
+drwxr-xr-x 18 root root    4096 Oct 23 13:13 ../
+drwxrwsr-x  2 root www-pub 4096 Oct 23 13:13 conf/
+drwxrwsr-x  2 root www-pub 4096 Oct 23 13:13 htdocs/
+apache2$</pre>
+
+<p>Using vim we create the following file within our apache2/htdocs folder and save it as mkdirtest.php. (In these examples, [larrow] and [rarrow] represent the "less than" symbol and the "greater than" symbol to avoid confusing the browser)</p>
+<pre>[larrow]?php
+/* filename: mkdirtest.php
+ * this code tests the ability to make a directory
+ * */
+
+// disable error reporting for production code
+ error_reporting(E_ALL);
+ ini_set('display_errors', TRUE);
+//
+ echo 'Current Working Dir '. getcwd() .'[larrow]br[rarrow]';
+// echo phpinfo();
+ $old = umask(0000);
+ if(!(is_dir('/home/bitnami/apache2/Storybook/htdocs/Test'))) {
+                echo 'Directory does not exist.'[larrow]br[rarrow]';
+        mkdir('/home/bitnami/apache2/Storybook/htdocs/Test', 0775, true); }
+        umask($old);
+?[rarrow]</pre>
+
+<p>If we point our browser at mkdirtest.php we get the expected message and if we look at the Storybook/htdocs folder we will see a newly added subfolder Test.</p>
+
+<p>Using vim we create the following file within our apache2/htdocs folder and save it as makefiletest.php.</p>
+
+<pre>[larrow]?php
+/*
+ * filename: testMakeFile.php
+ * this code tests creating a file
+*/
+
+// disable error reporting for production code
+error_reporting(E_ALL);
+ini_set('display_errors', TRUE);
+
+$testString = "E Pluribus Unum";
+$destinationPath = '/home/bitnami/apache2/Storybook/htdocs/Test/';
+$destinationFile = 'testFile.txt';
+echo 'Current Working Dir '. getcwd() .'[larrow]br[rarrow]';
+//echo phpinfo();
+
+if(is_dir($destinationPath)) {
+	$result = file_put_contents($destinationPath.$destinationFile, $testString); }
+?[rarrow]</pre>
+
+<p>If we point our browser at Storybook/Test/testFile.txt we get the expected message and if we look at the Storybook/htdocs folder we will see a subfolder Test with the testFile.txt file in it. These two short program files test the accessibilty of the folder through PHP code.</p>
+
+<p>Now we want to navigate to the /home/bitnami/apache2/Storybook/conf folder and use vim to create three configuration files there.</p>
+
+<p>The first file is httpd-vhosts.conf with the following content</p>
+<pre>[larrow]VirtualHost *:443[rarrow]
+  ServerName Storybook.example.com
+  DocumentRoot "/home/bitnami/Storybook/htdocs"
+  Include "/home/bitnami/Storybook/conf/httpd-app.conf"                         
+[larrow]/VirtualHost[rarrow]
+</pre>
+
+<p>The second file is httpd-prefix.conf with this content</p>
+<pre>Alias /Storybook/ "/home/bitnami/Storybook/htdocs/"
+Alias /Storybook "/home/bitnami/Storybook/htdocs"
+Include "/home/bitnami/Storybook/conf/httpd-app.conf"</pre>
+
+<p>The third file is httpd-app.conf with this content</p>
+<pre>[larrow]Directory "/home/bitnami/Storybook/htdocs"[rarrow]
+    Options Indexes MultiViews
+    AllowOverride All
+    [larrow]IfVersion [larrow] 2.3 [rarrow]
+    Order allow,deny
+    Allow from all
+    [larrow]/IfVersion>
+    [larrow]IfVersion >= 2.3[rarrow]
+    Require all granted
+    [larrow]/IfVersion[rarrow]
+[larrow]/Directory[rarrow]</pre>
+
+<p>These edits result in a folder with contents like this</p>
+<pre>apache2/Storybook/conf$ ll
+total 20
+drwxrwsr-x 2 root www-pub 4096 Oct 23 15:47 ./
+drwxrwsr-x 4 root www-pub 4096 Oct 23 13:13 ../
+-rw-r--r-- 1 root www-pub  270 Oct 23 15:34 httpd-app.conf
+-rw-r--r-- 1 root www-pub  200 Oct 23 15:41 httpd-prefix.conf
+-rw-r--r-- 1 root www-pub  229 Oct 23 15:47 httpd-vhosts.conf</pre>
+
+<p>We will want to create two more sets of these three files, once under the Comics folder and once under the ComicsUser folder, in each case substituting the appropriate parent folder name for "Storybook" in the three example file edits shown above.</p>
+
+<p>Now we need to perform two more file edits on a pair of configuration extension files used by the Bitnami LAMP stack Apache installation.</p>
+
+<p>The first file is named /opt/bitnami/apache2/conf/bitnami/bitnami-apps-prefix.conf and we want to add these three lines at the end of this file.</p>
+<pre>Include "/home/bitnami/Comics/conf/httpd-prefix.conf"
+Include "/home/bitnami/ComicsUser/conf/httpd-prefix.conf"
+Include "/home/bitnami/Storybook/conf/httpd-prefix.conf"</pre>
+
+<p>The second file to edit is named /opt/bitnami/apache2/conf/bitnami$/bitnami.conf and we want to edit this file so that it looks like this next below. Obviously, you will want to use your own domain name in the rewrite section. (In these examples, [larrow] and [rarrow] represent the "less than" symbol and the "greater than" symbol to avoid confusing the browser)</p>
+<pre># Default Virtual Host configuration.
+
+[larrow]IfVersion [larrow] 2.3 [rarrow]
+  NameVirtualHost *:80
+  NameVirtualHost *:443
+[larrow]/IfVersion[rarrow]
+
+[larrow]VirtualHost _default_:80[rarrow]
+  DocumentRoot "/opt/bitnami/apache2/htdocs"
+RewriteEngine On
+RewriteCond %{HTTPS} off [OR]
+RewriteCond %{HTTP_HOST} ^www\. [NC]
+RewriteCond %{HTTP_HOST} ^(?:www\.)?(.+)$ [NC]
+RewriteRule ^ https://syntheticreality.net%{REQUEST_URI} [L,NE,R=301]
+  [larrow]Directory "/opt/bitnami/apache2/htdocs"[rarrow]
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    [larrow]IfVersion [larrow] 2.3 [rarrow]
+      Order allow,deny
+      Allow from all
+    [larrow]/IfVersion[rarrow]
+    [larrow]IfVersion >= 2.3 [rarrow]
+      Require all granted
+    [larrow]/IfVersion[rarrow]
+  [larrow]/Directory[rarrow]
+
+  # Error Documents
+  ErrorDocument 503 /503.html
+
+  # Bitnami applications installed with a prefix URL (default)
+  Include "/opt/bitnami/apache2/conf/bitnami/bitnami-apps-prefix.conf"
+[larrow]/VirtualHost[rarrow]
+
+# Default SSL Virtual Host configuration.
+
+[larrow]IfModule !ssl_module[rarrow]
+  LoadModule ssl_module modules/mod_ssl.so
+[larrow]/IfModule[rarrow]
+
+Listen 443
+SSLProtocol all -SSLv2 -SSLv3
+SSLHonorCipherOrder on
+SSLCipherSuite "EECDH+ECDSA+AESGCM EECDH+aRSA+AESGCM EECDH+ECDSA+SHA384 EECDH+ECDSA+SHA256 EECDH+aRSA+SHA384 EECDH+aRSA+SHA256 EECDH !aNULL !eNULL !LOW !3DES !MD5 !EXP !PSK !SRP !DSS !EDH !RC4"
+SSLPassPhraseDialog  builtin
+SSLSessionCache "shmcb:/opt/bitnami/apache2/logs/ssl_scache(512000)"
+SSLSessionCacheTimeout  300
+
+[larrow]VirtualHost _default_:443[rarrow]
+  DocumentRoot "/opt/bitnami/apache2/htdocs"
+  SSLEngine on
+SSLCertificateFile "/opt/bitnami/apache2/conf/server.crt"
+SSLCertificateKeyFile "/opt/bitnami/apache2/conf/server.key"
+
+  [larrow]Directory "/opt/bitnami/apache2/htdocs"[rarrow]
+#   Options Indexes FollowSymLinks
+    Options FollowSymLinks
+    AllowOverride All
+    [larrow]IfVersion [larrow] 2.3 [rarrow]
+      Order allow,deny
+      Allow from all
+    [larrow]/IfVersion[rarrow]
+    [larrow]IfVersion >= 2.3 [rarrow]
+      Require all granted
+    [larrow]/IfVersion[rarrow]
+  [larrow]/Directory[rarrow]
+
+  # Error Documents
+  ErrorDocument 503 /503.html
+
+  # Bitnami applications installed with a prefix URL (default)
+  Include "/opt/bitnami/apache2/conf/bitnami/bitnami-apps-prefix.conf"
+[larrow]/VirtualHost[rarrow]
+
+# Bitnami applications that uses virtual host configuration
+Include "/opt/bitnami/apache2/conf/bitnami/bitnami-apps-vhosts.conf"
+</pre>
+
+<p>Now let's restart the LAMP stack and continue after that. We can do that with this bitnami script.</p>
+
+<pre>apache2$ /home/bitnami/ctlscript.sh restart</pre>
+
+<p>Now if we point our browser at /Storybook/Test/testFile.txt we will see the E Pluribus Unum motto as the result. If we copy our index.php file from our htdocs document root into the Storybook folder it can be executed from there with a request to /Storybook/index.php</p>
+
+<h2>What this means is that we can serve content that is not contained within the default htdocs folder.</h2>
+
+<p>Note especially that the folder Storybook is not within the htdocs folder but is instead at the same level in the folder hierarchy on an AWS Bitnami LAMP stack.</p>
+
+<p>Now that we can serve content in this fashion, let's continue the set up to help us "upload" content.</p>
+
+<h2>Set up a sessions database for PHP.</h2>
+
+<p>We want to set up a sessions handler database store using our mySQL server for our PHP sessions data. The philosophy of why this might be of benefit is beyond our discussion, but there are various strong reasons that you might want to do this.</p>
+
+<p>This requires a sessions handler function to interface the PHP with the sessions database. We use the <strong>Zebra_Session</strong> code which is described as:<br>
+"A drop-in replacement for PHP's default session handler which stores session data in a MySQL database, providing both better performance and better security and protection against session fixation and session hijacking"<br>
+The code can be found on the <a href="https://github.com/stefangabos/Zebra_Session">Zebra_Session</a> author's page.</p>
+
+<p>We need to control access to certain folders in such a way as to be consistent with security considerations and the operation of our code. We currently have these folders set up under the /home/bitnami folder as shown here.</p>
+
+<pre>lrwxrwxrwx  1 bitnami bitnami    27 Oct 26  2019 htdocs -> /opt/bitnami/apache2/htdocs/
+drwxrwxr-x 12 bitnami bitnami  4096 Mar 22  2020 Facebook/
+drwxrwxr-x  3 bitnami bitnami  4096 Mar 18  2020 session2DB/
+drwxrwxr-x  2 bitnami bitnami  4096 Dec  4 20:15 includes/
+drwxrwsr-x  2 root    www-pub  4096 Dec 24 22:37 uploads/
+drwxrwsr-x  4 root    www-pub  4096 Nov 13 16:49 ComicsUser/
+drwxrwsr-x  4 root    www-pub  4096 Nov 13 16:52 Storybook/
+drwxrwsr-x  4 root    www-pub  4096 Nov 13 16:49 Comics/</pre>
+
+<p>We will need to create or copy/paste a number of files into our folder stack. Copies of the files are included in this repository. This directory tree illustrates the structure of four of our initial folders and their content. The files tagged "CLEAN" will require edits to show your mySQL server name, user name, password, and table name values.</p>
+<pre>.
+├── [lrwxrwxrwx]  htdocs -> /opt/bitnami/apache2/htdocs
+│   ├── (we will add copies of four files described below)
+│
+├── [drwxrwxr-x]  Facebook
+│   ├── (this is the Facebook OG API code as it is downloaded
+│          from the FB developer site with no changes)
+│
+├── [drwxrwxr-x]  session2DB
+│   ├── [-rw-rw-r--]  CLEAN linkZSession_DataTable.php
+│   ├── [-rw-rw-r--]  Zebra_Database.php
+│   ├── [-rw-rw-r--]  Zebra.php
+│   ├── [-rw-rw-r--]  Zebra_Session.php
+│   ├── [-rw-rw-r--]  ZebraTest.php (copy to HTDOCS)
+│   ├── [-rw-rw-r--]  dumpSession.php (copy to HTDOCS)
+│   └── [drwxrwxr-x]  install
+│       ├── [-rw-rw-r--]  CLEAN buildZSession_DataTable.class.php
+│       ├── [-rw-rw-r--]  CLEAN createZSessionDataBase.php (copy to HTDOCS)
+│       ├── [-rw-rw-r--]  createZSessionSQLtable.php (copy to HTDOCS)
+│       └── [-rw-rw-r--]  Zebra_session_data.sql
+│
+├── [drwxrwxr-x]  includes (the text files are flags for the builder code)
+│   ├── [-rw-rw-r--]  CLEAN Comic.class.php
+│   ├── [-rw-rw-r--]  CLEAN createComicDataBase.php (copy to HTDOCS)
+│   ├── [-rw-rw-r--]  createComicSQLTables.php (copy to HTDOCS)
+│   ├── [-rw-rw-r--]  buoy.txt.sav
+│   ├── [-rw-rw-r--]  host.txt
+│   ├── [-rw-rw-r--]  offline.txt.sav
+│   ├── [-rw-rw-r--]  options.txt
+│   └── [-rw-rw-r--]  storybook.txt
+│
+└── [drwxrwsr-x]  uploads (this directory is nominally empty
+                             of permanent content)
+</pre>
+
+<p>Six setup files will be copied into our htdocs folder. The first file, dumpSession.php shown here, will exercise our session manager functionality when we have it set up.</p>
+<center><img style="border-style: solid; border-width: 3px;" src="./dumpSession_php.jpg" width="1000px" height="1157px"></center>
+<center>dumpSession_php.jpg</center>
+<p>The second file, createZSessionDataBase.php shown here will set up the session manager database.</p>
+<center><img style="border-style: solid; border-width: 3px;" src="./createDataBase_php.jpg" width="792px" height="536px"></center>
+<center>createDataBase_php.jpg</center>
+<p>The third file, createZSessionSQLtable.php shown here will set up the session manager table in the database.</p>
+<center><img style="border-style: solid; border-width: 3px;" src="./createSessionSQLtable_php.jpg" width="1000px" height="707px"></center>
+<center>createSessionSQLtable_php.jpg</center>
+<p>The structure of the table created by createZSessionSQLtable.php is shown here.</p>
+<center><img style="border-style: solid; border-width: 3px;" src="./SessionDataTableStructure.jpg" width="537px" height="207px"></center>
+<center>SessionDataTableStructure.jpg</center>
+<p>The fourth file, ZebraTest.php shown here will test our session manager functionality when we have it set up.</p>
+<center><img style="border-style: solid; border-width: 3px;" src="./ZebraTest_php.jpg" width="1000px" height="647px"></center>
+<center>ZebraTest_php.jpg</center>
+<p>The fifth file, createComicDataBase.php will set up the Comics database. The sixth file, createComicSQLtables.php will set up the Comics table in the database. These two files are structurally similar to the files used for the Sessions database.</p>
+
+<p>In addition to these files above in the htdocs folder, we need to create or copy/paste a number of files into our session2DB folder and into the install subfolder within it. Copies of the files are in the session2DB folder in this tutorial, along with a copy of the install subfolder and its files.</p>
+
+<p>Besides the two main "executables", Zebra_Session.php and Zebra_Database.php, there are two other files of importance. One of these files, Zebra.php, is used to invoke the session manager at the beginning of our php programs as we may see here in our dumpSession code.
+<center><img style="border-style: solid; border-width: 3px;" src="./startSessionHeaderForCode.jpg" width="718px" height="265px"></center>
+<center>startSessionHeaderForCode.jpg</center>
+<p>The contents of Zebra.php are shown here next.</p>
+<center><img style="border-style: solid; border-width: 3px;" src="./Zebra_php.JPG" width="873px" height="471px"></center>
+<center>Zebra_php.JPG</center>
+<p>Particularly note the reference to the file linkZSession_DataTable.php which contains our database connection parameters as shown here next.
+<center><img style="border-style: solid; border-width: 3px;" src="./linkZSession_DataTable_php.JPG" width="891px" height="390px"></center>
+<center>linkZSession_DataTable_php.JPG</center>
+
+<p>To use the database session manager simply replace the familiar session_start with an include statement like this, along with such options as the session_name value, so instead of</p>
+<pre>//Start session
+session_name("Storybook");
+session_start;</pre>
+<p>we will now use</p>
+<pre>// Start session
+session_name("Storybook");
+include("/home/bitnami/session2DB/Zebra.php");</pre>
+
+<p>If we run ZebraTest.php from our browser we will see this first screen shown here.</P>
+<center><img style="border-style: solid; border-width: 3px;" src="./ZebraTestScreen1.JPG" width="740px" height="294px"></center>
+<center>ZebraTestScreen1.JPG</center>
+
+<p>If we refresh the browser as this first screen suggests we will then see this second screen.</p>
+<center><img style="border-style: solid; border-width: 3px;" src="./ZebraTestScreen2.JPG" width="762px" height="342px"></center>
+<center>ZebraTestScreen2.JPG</center>
+
+<p>More information can be obtained by running the dumpSession.php script mentioned, above which results in a fair amount of data output. You can also use a cookie manager or viewer to see the SESSION cookie. Once the session handler is set up, these programs are no longer needed and should be deleted.</p>
+
+<h2>We now have a database session handler for our PHP code installed on our LAMP stack.</h2>
+
+<p>The Comic.class.php program in the includes folder is a PHP class library for the comics database, and it provides all of the create, read, write and update functions for the database we use to tabulate most of the comic's contents. Note that once we have actually created a comic, this database is no longer needed. Its content is only referred to by the build process. Two of the remaining files in the includes folder are used to set up the comics database.</p>
+
+<p>The Facebook folder contains a copy of the FB API as downloaded from Facebook. The uploads folder is empty until it is used temporarily by the builder.</p>
+
+<h2>Setup the Three Application Folders</h2>
+
+<p>As we saw previously, there are three more folders used in our hierarchy, a ComicsUser folder, a Storybook folder, and a Comics folder. These folders can easily be populated by copying the files from the repository and editing as needed. A most important distinction exists between these three folders and the four we just discussed, and that revolves around what entity might access their contents. The first four folders are all accessed by PHP code on the server and are unseen by the browser. But parts of these next three folders appear as subfolders beneath the htdocs folder, and as such they are visible to the HTML code and the browser. Their htdocs folders appear as though they were actually subfolders within the DOCUMENT_ROOT htdocs folder. Recall that we edited the three sets of configuration files that configure this Apache "alias" feature earlier.</p>
+
+<p>Our first folder, the Storybook folder, is structured as shown in the directory tree below. The programs in this folder accomplish the majority of the application's actual comic maker functions. The main entry here is through the OauthPortal.php program which uses the files in the ComicsUser folder described later to log a user into the application using their Facebook credentials. OauthPortal.php is also the callback entry once a user has been authenticated by Facebook, and if the user logon was successful it then invokes the index.php code in this folder.</p>
+<pre>.        
+├── [drwxrwsr-x]  Storybook
+    ├── [drwxrwsr-x]  conf
+    │   ├── [-rw-rwsr--]  httpd-app.conf
+    │   ├── [-rw-rwsr--]  httpd-prefix.conf
+    │   └── [-rw-rwsr--]  httpd-vhosts.conf
+    └── [drwxrwsr-x]  htdocs
+        ├── [-rw-rwsr--]  artistName.php
+        ├── [-rw-rwsr--]  Audience.php
+        ├── [-rw-rwsr--]  authorName.php
+        ├── [-rw-rwsr--]  cardEmail.php
+        ├── [-rw-rwsr--]  cardSubtitle.php
+        ├── [-rw-rwsr--]  cardText.php
+        ├── [-rw-rwsr--]  cardTitle.php
+        ├── [-rw-rwsr--]  Category.php
+        ├── [-rw-rwsr--]  clearConfig.php
+        ├── [-rw-rwxr--]  closeComicBuilder.php
+        ├── [-rw-rwsr--]  closeSession.php
+        ├── [-rw-rwsr--]  ComicBuilder Data Inputs.txt
+        ├── [-rw-rwsr--]  ComicComment.php
+        ├── [-rw-rwsr--]  ComicDesc.php
+        ├── [-rw-rwsr--]  ComicDisplayName.php
+        ├── [-rw-rwsr--]  ComicEmail.php
+        ├── [-rw-rwsr--]  ComicName.php
+        ├── [-rw-rwsr--]  Comic.php
+        ├── [-rw-rwsr--]  downloadZip.php
+        ├── [-rw-rwsr--]  dumpSession.php
+        ├── [-rw-rwsr--]  getAltImg.php
+        ├── [-rw-rwsr--]  getBkgnd.php
+        ├── [-rw-rwsr--]  getCardImage.php
+        ├── [-rw-rwsr--]  getComicCaptions.php
+        ├── [-rw-rwsr--]  getComic.php
+        ├── [-rw-rwsr--]  getConfig.php
+        ├── [-rw-rwsr--]  getConfigValues.php
+        ├── [-rw-rwsr--]  getLogos.php
+        ├── [-rw-rwsr--]  getOGImg.php
+        ├── [-rw-rwsr--]  imgUploader.php
+        ├── [-rw-rwsr--]  index.php
+        ├── [-rw-rwsr--]  listComicFiles.php
+        ├── [-rw-rwsr--]  nameComic.php
+        ├── [-rw-rwsr--]  navMenu.php
+        ├── [-rw-rwsr--]  noZoomSitename.php
+        ├── [-rw-rwsr--]  OauthPortal.php
+        ├── [-rw-rwsr--]  Operations Option Flags.txt
+        ├── [-rw-rwsr--]  pageTitle.php
+        ├── [-rw-rwsr--]  pageURL.php
+        ├── [-rw-rwsr--]  Publisher.php
+        ├── [-rw-rwsr--]  rrmdir.php
+        ├── [-rw-rwsr--]  saveConfig.php
+        ├── [-rw-rwsr--]  showComicFiles.php
+        ├── [-rw-rwsr--]  siteName.php
+        ├── [-rw-rwsr--]  siteSubtitle.php
+        ├── [-rw-rwsr--]  siteURL.php
+        ├── [-rw-rwsr--]  StorybookFooter.php
+        ├── [-rw-rwsr--]  StorybookHostFooter.php
+        ├── [-rw-rwsr--]  Subtitle.php
+        ├── [-rw-rwsr--]  txtUploader.php
+        ├── [-rw-rwsr--]  Yield.php
+        ├── [-rw-rwsr--]  ZipFolder.php
+        ├── [-rw-rwsr--]  ZipListOfFilesOrFolders.php
+        ├── [drwxrwsr-x]  css
+        │   ├── [-rw-rwsr--]  bootstrap.css
+        │   ├── [-rw-rwsr--]  bootstrap.min.css
+        │   ├── [-rw-rwsr--]  colorPalette.css
+        │   ├── [-rw-rwsr--]  ComicBuilder.css
+        │   ├── [-rw-rwsr--]  ComicCreator.css
+        │   ├── [-rw-rwsr--]  DT_bootstrap.css
+        │   ├── [-rw-rwsr--]  LiteThemes.css
+        │   ├── [-rw-rwsr--]  materialdesignicons.css
+        │   ├── [-rw-rwsr--]  mdb.min.css
+        │   ├── [-rw-rwsr--]  normalize.css
+        │   ├── [-rw-rwsr--]  SiteFonts.css
+        │   ├── [-rw-rwsr--]  SiteStyles.css
+        │   ├── [-rw-rwsr--]  style.css
+        │   └── [-rw-rwsr--]  textColorPalette.css
+        ├── [drwxrwsr-x]  images
+        │   ├── [-rw-rwsr--]  11.png
+        │   ├── [-rw-rwsr--]  1x1pixel.png
+        │   ├── [-rw-rwsr--]  33.png
+        │   ├── [-rw-rwsr--]  archive.png
+        │   ├── [-rw-rwsr--]  binary.png
+        │   ├── [-rw-rwsr--]  doc.gif
+        │   ├── [-rw-rwsr--]  eps.gif
+        │   ├── [-rw-rwsr--]  exe.gif
+        │   ├── [-rw-rwsr--]  fla.gif
+        │   ├── [-rw-rwsr--]  general.png
+        │   ├── [-rw-rwsr--]  html.png
+        │   ├── [-rw-rwsr--]  images_file.gif
+        │   ├── [-rw-rwsr--]  loading.gif
+        │   ├── [-rw-rwsr--]  loadings.gif
+        │   ├── [-rw-rwsr--]  pdf.gif
+        │   ├── [-rw-rwsr--]  php.png
+        │   ├── [-rw-rwsr--]  progressBar.gif
+        │   ├── [-rw-rwsr--]  progress.gif
+        │   ├── [-rw-rwsr--]  psd.gif
+        │   ├── [-rw-rwsr--]  real.gif
+        │   ├── [-rw-rwsr--]  RockwallBackground.jpg
+        │   ├── [-rw-rwsr--]  setup.gif
+        │   ├── [-rw-rwsr--]  sig.gif
+        │   ├── [-rw-rwsr--]  swf.gif
+        │   ├── [-rw-rwsr--]  thumbsUp..gif
+        │   ├── [-rw-rwsr--]  txt.png
+        │   ├── [-rw-rwsr--]  video.gif
+        │   └── [-rw-rwsr--]  xls.gif
+        └── [drwxrwsr-x]  js
+            ├── [-rw-rwsr--]  bootstrap.js
+            ├── [-rw-rwsr--]  DT_bootstrap.js
+            ├── [-rw-rwsr--]  isoblockLogo.js
+            ├── [-rw-rwsr--]  jquery-3.3.1.min.js
+            ├── [-rw-rwsr--]  jquery-3.5.1.min.js
+            ├── [-rw-rwsr--]  jquery.dataTables.js
+            ├── [-rw-rwsr--]  jquery.js
+            ├── [-rw-rwsr--]  jquery.min.js
+            ├── [-rw-rwsr--]  vpb_uploader - Copy.js
+            └── [-rw-rwsr--]  vpb_uploader.js
+</pre>
+
+<p>The index.php program manages the data gathering functions of the builder by using subprograms to obtain each value needed to create the comic. Each subprogram checks the value inputted for that data item and may format it according to requirements. An example of this sort of subprogram that obtains a single value is cardTitle.php which has the sole function of obtaining that value as an input from the user. Another sort of subprogram invoked by the index.php code obtains files uploaded by the user as content for the comic. One example of this sort of subprogram is getComic.php which serves to obtain the images that will make up the comic pages. All of the subprograms that gather files as input (as opposed to user entered values) invoke the JavaScript program vpb_uploader.js. That code performs the file selection and sorting functions and parses various information values about each file it uploads and passes each one in turn to the imgUploader.php program where it is processed and stored and where the database manager is updated. In some cases the user content files may be text, not images, as in getComicCaptions.php for example, and in that case we still use vpb_uploader.js but instead it will invoke txtUploader.php to process each uploaded text file. The index.php code can invoke different subprograms depending upon the application setup, for example reference the "txt" flag files in the includes folder.</p>
+
+<p>Once all of the content and values necessary to create a comic are gathered by each dialog in turn, we will run the Yield.php program which sets up and manages the creation of the comic using the gathered data, invokes Comic.php to actually construct the comic book code, invokes code that creates a ZIP archive of the comic which may be downloaded, creates an entry in the site comic books gallery, and allows the comic book to be "Shared" to Facebook. The comic that the builder creates uses only HTML, CSS, and JavaScript so it requires only a browser to run. It also uses responsive design including the Bootstrap framework to support a wide variety of devices. There are a few housekeeping and function execution programs included in this folder as well</p>
+
+<p>The second folder we will consider is the ComicsUser folder which has its contents as shown in this directory tree. This folder contains the code which interacts with the Facebook login process and manages the Comics User database functions. Besides the login/logout functions, there is code that shares our content to Facebook as well as some code to manage our content, which here largely means supporting an option deleting our content. Again, you will need to edit some of the files to reflect your own environment, such as replacing the domain name and application information with your own for an example.</p>
+<pre>.		
+├── [drwxrwsr-x]  ComicsUser
+    ├── [drwxrwsr-x]  conf
+    │   ├── [-rw-rwsr--]  httpd-app.conf
+    │   ├── [-rw-rwsr--]  httpd-prefix.conf
+    │   └── [-rw-rwsr--]  httpd-vhosts.conf
+    └── [drwxrwsr-x]  htdocs
+        ├── [-rw-rwsr--]  CLEAN ComicsUser.class.php
+        ├── [-rw-rwsr--]  CLEAN config.php
+        ├── [-rw-rwsr--]  CLEAN createComicsUserDataBase.php
+        ├── [-rw-rwsr--]  createComicsUserSQLTables.php
+        ├── [-rw-rwsr--]  Login.php
+        ├── [-rw-rwsr--]  logout.php
+        ├── [-rw-rwsr--]  closeSession.php
+        ├── [-rw-rwsr--]  contentManager.php
+        ├── [-rw-rwsr--]  get_ip_address.php
+        ├── [-rw-rwsr--]  Share.php
+        ├── [-rw-rwsr--]  favicon.ico
+        ├── [drwxrwsr-x]  css
+        │   ├── [-rw-rwsr--]  htaccess.txt
+        │   ├── [-rw-rwsr--]  materialdesignicons.css
+        │   ├── [-rw-rwsr--]  normalize.css
+        │   ├── [-rw-rwsr--]  background.css
+        │   ├── [-rw-rwsr--]  SiteFonts.css
+        │   └── [-rw-rwsr--]  SiteStyles.css
+        ├── [drwxrwsr-x]  Fonts
+        │   ├── [-rw-rwsr--]  materialdesignicons-webfont.ttf
+        │   └── [-rw-rwsr--]  RobotoSlab-Regular.ttf
+        ├── [drwxrwsr-x]  Images
+        │   ├── [-rw-rwsr--]  facebook-logout-button.png
+        │   ├── [-rw-rwsr--]  facebook-logout-of-image-ops-button.png
+        │   ├── [-rw-rwsr--]  facebook-share-button2.png
+        │   ├── [-rw-rwsr--]  facebook-share-button.png
+        │   ├── [-rw-rwsr--]  facebook-share-comic-button.png
+        │   ├── [-rw-rwsr--]  facebook-shared-thanks.png
+        │   ├── [-rw-rwsr--]  facebook-share-failure.png
+        │   ├── [-rw-rwsr--]  facebook-share-gallery-button.png
+        │   ├── [-rw-rwsr--]  facebook-sign-in-button2.png
+        │   ├── [-rw-rwsr--]  facebook-sign-in-button.png
+        │   └── [-rw-rwsr--]  RockwallBackground.jpg
+        ├── [drwxrwsr-x]  js
+        │   ├── [-rw-rwsr--]  context.js (disables right click context)
+        │   ├── [-rw-rwsr--]  isoblockLogo.js (our logo spiiners at start)
+        │   ├── [-rw-rwsr--]  jquery.min.js
+        │   ├── [-rw-rwsr--]  logoSwap.js (swaps the header logos on click)
+        │   └── [-rw-rwsr--]  swipe.js (touch screen support)
+        └── [drwxrwsr-x]  Messages
+            ├── [-rw-rwsr--]  noFormMsg.php
+            ├── [-rw-rwsr--]  noImageSelectedMsg.php
+            ├── [-rw-rwsr--]  noImagesMsg.php
+            ├── [-rw-rwsr--]  noShareFBLogoutMsg.php
+            ├── [-rw-rwsr--]  noShareLogoutMsg.php
+            ├── [-rw-rwsr--]  noTaskSelectedMsg.php
+            ├── [-rw-rwsr--]  shareFBLogoutMsg.php
+            └── [-rw-rwsr--]  shareLogoutMsg.php
+</pre>
+
+<p>The third and final folder we will consider is the Comics folder which contains the ultimate results of the builder activities. In the directory tree below those files and folders shown in blue were created by the builder application with user provided files or text dialog entries.</p>
+
+<p>This file, BMGEnhanced.php, was created by the builder and it contains the text dialog entries used in the example comic. Note that [larrow] and [rarrow] replace the left and right arrow symbols and some line breaks were added for clarity.</p>
+<pre>[larrow]?php require_once("/home/bitnami/session2DB/Zebra.php");
+$_SESSION["siteurl"] = "https://syntheticreality.net/Comics/";
+$_SESSION["Comicname"] = "BMGEnhanced";
+$_SESSION["pagetitle"] = "";$_SESSION["sitename"] = "";$_SESSION["sitesubtitle"] = "";
+$_SESSION["noZoomSitename"] = "1";$_SESSION["navmenu"] = "";$_SESSION["Comicdisplayname"] = "";
+$_SESSION["Subtitle"] = "";$_SESSION["Comiccomment"] = "";$_SESSION["Comicemail"] = "";
+$_SESSION["artistname"] = "Bob Wright";
+$_SESSION["cardTitle"] = "BMG Enhanced";
+$_SESSION["cardImage"] = "BMGEnhancedCARD.gif";
+$_SESSION["cardSubtitle"] = "BioMechaGenics Enhanced in advent";
+$_SESSION["cardText"] = "By 1980 the levels of greenhouse gases had climbed 
+far higher than anything seen for many millions of years, and by the start of
+the 21st century, it was clear that there was a major connection between global
+temperature and greenhouse gas levels.<br>Now the computer models, with wholly
+independent methods and data, were predicting processes that would bring a rapid
+and severe global warming  a disruption of climate exceeding anything seen since
+the emergence of the human species. The models said the threshold for dangerous
+global warming would be crossed between 2027 and 2042. This was the milieu that
+would see the advent of BioMechaGenics (BMG) Enhanced.";
+$_SESSION["category"] = "Hard scifi";
+$_SESSION["authorname"] = "Bob Wright";
+$_SESSION["publisher"] = "Raw Material Comics";
+$_SESSION["audience"] = "General Audiences";
+$_SESSION["cardemail"] = "bmgenhanced@isoblock.com";
+$_SESSION["oauth_id"] = "3614865565243561";
+?[rarrow]</pre>
+
+<pre>.
+├── [drwxrwsr-x]  Comics
+    ├── [drwxrwsr-x]  conf
+    │   ├── [-rw-rwsr--]  httpd-app.conf
+    │   ├── [-rw-rwsr--]  httpd-prefix.conf
+    │   └── [-rw-rwsr--]  httpd-vhosts.conf
+    └── [drwxrwsr-x]  htdocs
+        ├── [-rw-rwsr--]  Comics.php
+        ├── [-rw-rwsr--]  Landing.png
+        ├── [-rw-rwsr--]  favicon.ico
+        ├── [-rw-rwsr--]  Robots.txt
+</pre><pre style="color: blue;">
+        ├── [-rw-rw-r--]  BMGEnhanced.html
+        ├── [-rw-rwsr--]  BMGEnhancedOGIMG.jpg
+        ├── [-rw-r--r--]  BMGEnhanced.card
+        ├── [drwxrwsr-x]  BMGEnhanced
+        │   ├── [-rw-r--r--]  BMGEnhanced.php
+        │   ├── [-rw-rwsr--]  1d58a88450665d2cd5ca2bc080c4212007b2a276068d1ebf0da4d0d5feec8cea.jpg
+        │   ├── [-rw-rwsr--]  5dadbef132986b5adf0c14d5354a18cbefb036835ea03177cbe3972fb78936b9.jpg
+        │   ├── [-rw-rwsr--]  653687f55b2c7f59363838058b7cc392c88088c7547c3877d1a80a2bd854a668.jpg
+        │   ├── [-rw-rwsr--]  ad50fd6628bee6bee3719e42e0738d01f5406c1a5ce0642dfc0ee553c48bce7e.jpg
+        │   ├── [-rw-rwsr--]  af8083daa9c229dece58a96224793774df395ff7de9f54ed72e9575b99d21068.jpg
+        │   ├── [-rw-rwsr--]  c52233b1848bcfdd5c8e286abcd9ee88d8bb8ec8e48ff474795e95669ddb4c15.jpg
+        │   ├── [-rw-rwsr--]  d5d001983d7d49a9d5d3ae78b43de4b48e1e4a3fc661859b7876cd6a6520c9f7.jpg
+        │   ├── [-rw-rwsr--]  e216cb5961e110eac96c68f6b5c25f7ee3779813dd05eacef5e4200078c24b15.jpg
+        │   ├── [drwxrwsr-x]  altimgs
+        │   │   ├── [-rw-rwsr--]  CC01 EarthSunAndMoon.gif
+        │   │   ├── [-rw-rwsr--]  CC03 cityscape.gif
+        │   │   ├── [-rw-rwsr--]  CC04 droughtcorn.gif
+        │   │   ├── [-rw-rwsr--]  CC05 resources.gif
+        │   │   └── [-rw-rwsr--]  CC06 highorbit.gif
+        │   ├── [drwxrwsr-x]  captions
+        │   │   ├── [-rw-rwsr--]  CC01EarthSunAndMoon.txt
+        │   │   ├── [-rw-rwsr--]  CC02solar.txt
+        │   │   ├── [-rw-rwsr--]  CC03cityscape.txt
+        │   │   ├── [-rw-rwsr--]  CC04droughtcorn.txt
+        │   │   ├── [-rw-rwsr--]  CC05resources.txt
+        │   │   ├── [-rw-rwsr--]  CC06highorbit.txt
+        │   │   ├── [-rw-rwsr--]  CC07concentration2.txt
+        │   │   └── [-rw-rwsr--]  CC08BMGEnhancedHands.txt</pre>
+<pre>        ├── [drwxrwsr-x]  coversImg</pre>
+<pre style="color: blue;">        │   └── [-rw-rwsr--]  BMGEnhancedCARD.gif</pre>
+<pre>        ├── [drwxrwsr-x]  css
+        │   ├── [-rw-rwsr--]  album.css
+        │   ├── [-rw-rwsr--]  bootstrap.min.css
+        │   ├── [-rw-rwsr--]  bootstrap.min.css.map
+        │   ├── [-rw-rwsr--]  colorPalette.css
+        │   ├── [-rw-rwsr--]  ComicCreator.css
+        │   ├── [-rw-rwsr--]  LiteThemes.css
+        │   ├── [-rw-rwsr--]  mdb.min.css
+        │   ├── [-rw-rwsr--]  mdb.min.css.map
+        │   ├── [-rw-rwsr--]  style.css
+        │   └── [-rw-rwsr--]  textColorPalette.css
+        ├── [drwxrwsr-x]  Fonts
+        │   ├── [-rw-rwsr--]  ComicNeue-Regular.ttf
+        │   ├── [-rw-rwsr--]  Merriweather-Black.ttf
+        │   ├── [-rw-rwsr--]  Merriweather-Regular.ttf
+        │   ├── [-rw-rwsr--]  Roboto-Regular.ttf
+        │   └── [-rw-rwsr--]  RobotoSlab-Regular.ttf
+        ├── [drwxrwsr-x]  Img
+        │   └── [-rw-rwsr--]  ScreenShot224.jpg
+        └── [drwxrwsr-x]  js
+            ├── [-rw-rwsr--]  bootstrap.min.js
+            ├── [-rw-rwsr--]  bootstrap.min.js.map
+            ├── [-rw-rwsr--]  comicReader.js
+            ├── [-rw-rwsr--]  jquery-3.5.1.min.js
+            ├── [-rw-rwsr--]  jquery.min.js
+            ├── [-rw-rwsr--]  mdb.min.js
+            └── [-rw-rwsr--]  mdb.min.js.map
+</pre>
+
+<p>The files listed here that are included in the BMGEnhancedSources folder were those used to create the example comic and there is also copy of the ZIP archive made by the builder for the example comic included here.</p>
+<pre>    BMGadvert.gif
+    BMGEnhancedCardText.txt
+    BMGEnhancedHands.jpg
+    CC01 EarthSunAndMoon.gif
+    CC01 EarthSunAndMoon.jpg
+    CC01 EarthSunAndMoon.txt
+    CC02 solar.jpg
+    CC02 solar.txt
+    CC03 cityscape.gif
+    CC03 cityscape.jpg
+    CC03 cityscape.txt
+    CC04 droughtcorn.gif
+    CC04 droughtcorn.jpg
+    CC04 droughtcorn.txt
+    CC05 resources.gif
+    CC05 resources.jpg
+    CC05 resources.txt
+    CC06 highorbit.gif
+    CC06 highorbit.jpg
+    CC06 highorbit.txt
+    CC07 concentration2.jpg
+    CC07 concentration2.txt
+    CC08 BMGEnhancedHands.jpg
+    CC08 BMGEnhancedHands.txt
+	---
+	BMGEnhanced.zip</pre>
+
+<p>Here next is a sequence of the screens that a user encounters from the Comics Gallery page through the login to the application with Facebook.</p>
+<center><img style="border-style: solid; border-width: 3px;" src="./LS1.jpg" width="1000px" height="904px"></center>
+<center><p>Login Screen 1 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./LS2.jpg" width="1000px" height="904px"></center>
+<center><p>Login Screen 2 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./LS3.jpg" width="1000px" height="904px"></center>
+<center><p>Login Screen 3 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./LS4.jpg" width="1000px" height="904px"></center>
+<center><p>Login Screen 4 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./LS5.jpg" width="1000px" height="904px"></center>
+<center><p>Login Screen 5 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./LS6.jpg" width="1000px" height="904px"></center>
+<center><p>Login Screen 6 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./LS7.jpg" width="1000px" height="904px"></center>
+<center><p>Login Screen 7 jpg</p></center>
+
+<h2>Facebook Application Setup Screens</h2>
+<P>Finally we have this group of screenshots that display the various entries used in the Facebook application setup pages. As you go through the settings Facebook will want to verify some of them, which explains why we need to have the site setup before we begin the FB application setup.
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS1.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 1 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS2.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 2 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS3.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 3 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS4.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 4 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS5.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 5 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS6.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 6 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS7.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 7 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS8.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 8 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS9.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 9 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS10.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 10 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS11.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 11 jpg</p></center>
+<center><img style="border-style: solid; border-width: 3px;" src="./FBS12.jpg" width="1000px" height="1004px"></center>
+<center><p>Facebook Setup Screen 12 jpg</p></center>
+
+<h2>Summary</h2>
+<p>This was a quick exposition of a folder hierarchy and programs that can be used to create a Facebook Comic Book Maker Application running on a Bitnami Ubuntu LAMP stack in the Amazon Web Services cloud. We also presented a brief screenshots overview of the Facebook application setup pages.</p>
+<p>Special thanks to the original authors of the Zebra Session Handler we use and also to the original author of the vpb_uploader JavaScript we adapted for use in the Storybook app. Also props and thanks to all the folks whose tutorial and forum and blog contributions showed me how to do this. A lot of the intent here is tribute to all of you folks.</p>
+<p>If something isn't clear inquire and we'll try to help. Comments and suggestions are welcomed. Bug reports are appreciated. You can email us at BMGEnhanced@isoblock.com</p>
+
+</body>
+</html>
