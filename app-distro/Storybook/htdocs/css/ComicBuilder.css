@@ -1,0 +1,169 @@
+
+/* Comic Builder Forms Pages style sheet */
+
+body {
+	font-family: 'Roboto', sans-serif; 
+	font-size: 1.6vw;
+}
+h1{
+	font-family: 'Roboto Slab', serif; 
+	font-weight: bold;
+	font-size: 5.6vw;
+}
+h2{
+	font-family: 'Roboto Slab', serif; 
+	font-weight: bold;
+	font-size: 2.8vw;
+	margin: 1vw;
+}
+h3 {
+	font-family: 'Roboto', sans-serif; 
+	font-size: 2.4vw;
+	margin: 1vw;
+}
+span{
+	color:red;
+	cursor:pointer;
+}
+p{
+	font-family: 'Roboto Slab', serif;
+	font-size: 2vw;
+	margin: 1vw;
+}
+input {
+  background: #ffff00;
+}
+textarea {
+  background: #ffff00;
+}
+#prevpagebutton {
+	font-family: 'Roboto Slab', serif; 
+	font-weight: bold;
+	font-size: 2.4vw;
+}
+#nextpagebutton {
+	font-family: 'Roboto Slab', serif; 
+	font-weight: bold;
+	font-size: 2.4vw;
+}
+.checkbox {
+  height: 1.7vw;
+  width: 1.7vw;
+  padding: 2vw 2vw;
+  cursor: pointer;
+  outline: .3vw solid green;
+}
+
+/* Thick red border */
+hr.new4 {
+  border: .3vw solid red;
+}
+/* Thin blue border */
+hr.new3 {
+  border: .1vw solid blue;
+}
+/* Thin dashed blue border */
+hr.new2 {
+  border: .1vw dashed blue;
+}
+#form_id{
+	width: 95vw;
+	margin-top: 1vw;
+}
+#add_files{
+	width: 90vw;
+}
+#Upload{
+	font-family: 'Roboto', sans-serif; 
+	padding: .1vw 1vw;
+	font-size: 2.4vw;
+}
+form{
+	font-family: 'Roboto', sans-serif; 
+	padding: .1vw 1vw;
+	font-size: 2.0vw;
+}
+#noZipMadeMsg{
+	text-align: center;
+	border:.5vw;
+	border-style:solid;
+	border-color:#8000FF;
+	padding: .2vw;
+}
+#downloadZip{
+	font-family: 'Roboto', sans-serif; 
+	padding: .1vw 1vw;
+	font-size: 2.8vw;
+	border:.5vw;
+	border-style:solid;
+	border-color:#0000FF;
+	padding: .5vw;
+}
+#ComicCreated{
+	text-align: center;
+	border:.5vw;
+	border-style:solid;
+	border-color:#0000FF;
+	padding: .2vw;
+}
+form #Comicname{
+	color:#ff4000;
+}
+#timeoutMsg{
+	text-align: center;
+	border:.5vw;
+	border-style:solid;
+	border-color:#8000FF;
+	padding: .2vw;
+	color:#6600ff;
+	background:#ffff00;
+}
+#ComicFooter{
+	text-align: center;
+	margin: auto;
+	width: 100%;
+	border: .2vw solid red;
+	background: #f0f0f0;
+}
+/* #configValuesBox{
+	position: relative;
+    top:0;right:0;bottom:0;left:0;
+} */
+#configDisplay{
+	position: relative;
+}
+#configValuesBox > #configValuesBkgnd{
+	position: absolute;
+    right:0;left:0;
+	border: .3vw solid blue;
+	margin-left: 2vw;
+	margin-right: 2vw;
+	background: #f0f0f0;
+	opacity: 0.4;
+	padding-left: 1vw;
+}
+#configValuesBox > #configValues{
+    position: relative;
+    right:0;left:0;
+	z-index: 10;
+	border: .3vw solid blue;
+	margin-left: 2vw;
+	margin-right: 2vw;
+	padding-left: 1vw;
+}
+.msgBox {
+	border: .3vw solid blue;
+	margin-left: 2vw;
+	margin-right: 2vw;
+	background: #f0f0f0;
+	opacity: 0.75;
+	padding-left: 1vw;
+}
+.infoBox {
+	border: .3vw solid #ff8000;
+	margin-left: 2vw;
+	margin-right: 2vw;
+	background: #f0f0f0;
+	opacity: 0.75;
+	padding-left: 1vw;
+}
